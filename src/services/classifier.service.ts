@@ -1,6 +1,8 @@
 import { pool } from '../db/index.js';
-import { sql } from 'slonik';
+import { sql, DatabasePool, DatabasePoolConnection, DatabaseTransactionConnection } from 'slonik';
 import { z } from 'zod';
+
+type Connection = DatabasePool | DatabasePoolConnection | DatabaseTransactionConnection;
 
 export interface Heuristic {
   pattern: RegExp;
@@ -25,7 +27,7 @@ export class TransactionClassifier {
    * Attempts to classify a transaction description into a Category ID.
    * Priority logic: Matches Regex -> Finds Category ID (User-specific PREFERRED over System-default).
    */
-  async classify(description: string, userId: string): Promise<string | null> {
+  async classify(description: string, userId: string, connection: Connection = pool): Promise<string | null> {
     if (!description) return null;
 
     // 1. Heuristic Matching
@@ -36,7 +38,7 @@ export class TransactionClassifier {
     // We order by user_id NULLS LAST so that if the user created their own 'Food' category, 
     // it will be returned before the system default.
     try {
-      const categoryId = await pool.maybeOneFirst(sql.type(z.string())`
+      const categoryId = await connection.maybeOneFirst(sql.type(z.string())`
         SELECT id 
         FROM categories 
         WHERE name = ${match.category} 
@@ -55,8 +57,8 @@ export class TransactionClassifier {
   /**
    * Returns a safe default category ID ('Other') for a user.
    */
-  async getDefaultCategoryId(userId: string): Promise<string> {
-    const id = await pool.oneFirst(sql.type(z.string())`
+  async getDefaultCategoryId(userId: string, connection: Connection = pool): Promise<string> {
+    const id = await connection.oneFirst(sql.type(z.string())`
       SELECT id FROM categories 
       WHERE name = 'Other' 
       AND (user_id IS NULL OR user_id = ${userId})

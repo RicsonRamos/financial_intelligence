@@ -44,13 +44,27 @@ export async function setup() {
     // Fresh Reset for test database
     await client.query('DROP SCHEMA public CASCADE; CREATE SCHEMA public;');
     
-    // Read the primary migration file
-    const migrationPath = path.join(process.cwd(), 'src', 'db', 'migrations', '001_initial_schema.sql');
-    const sql = fs.readFileSync(migrationPath, 'utf8');
+    // Read all migration files in order
+    const migrationsDir = path.join(process.cwd(), 'src', 'db', 'migrations');
+    const migrationFiles = fs.readdirSync(migrationsDir)
+      .filter(f => f.endsWith('.sql'))
+      .sort();
     
-    // Apply migration
-    await client.query(sql);
-    console.log('[SUCCESS] Schema applied to finance_test.');
+    console.log(`[INIT] Applying ${migrationFiles.length} migrations...`);
+    for (const file of migrationFiles) {
+      console.log(`[MIGRATION] Running ${file}...`);
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      await client.query(sql);
+    }
+    console.log('[SUCCESS] All migrations applied to finance_test.');
+    
+    // 3. Seeding Default Categories (Essential for Day 4 classifier tests)
+    console.log('[INIT] Seeding default categories...');
+    const defaultCategories = ['Food', 'Transport', 'Housing', 'Utilities', 'Entertainment', 'Health', 'Other'];
+    for (const categoryName of defaultCategories) {
+      await client.query('INSERT INTO categories (name, user_id) VALUES ($1, NULL) ON CONFLICT (name, user_id) DO NOTHING', [categoryName]);
+    }
+    console.log('[SUCCESS] Default categories seeded.');
     
   } catch (error) {
     console.error('[ERROR] Failed to setup test database schema:', error);

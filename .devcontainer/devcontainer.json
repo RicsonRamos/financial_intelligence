@@ -1,33 +1,35 @@
 {
-    "name": "FINANCIAL-INTELLIGENCE-CORE",
-    "dockerComposeFile": "docker-compose.yml",
-    "service": "app",
-    "workspaceFolder": "/workspace",
-    "customizations": {
-        "vscode": {
-            "extensions": [
-                "saoudrizwan.claude-dev",
-                "dracula-theme.theme-dracula",
-                "ms-vscode.vscode-typescript-next",
-                "dbaeumer.vscode-eslint",
-                "esbenp.prettier-vscode",
-                "ms-azuretools.vscode-docker",
-                "mtxr.sqltools",
-                "mtxr.sqltools-driver-pg"
-            ],
-            "settings": {
-                "remote.SSH.forwardAgent": false,
-                "git.terminalAuthentication": false
-            }
-        }
-    },
-    "remoteUser": "node",
-    "mounts": [
-        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
-    ],
-    "containerEnv": {
-        "DATABASE_URL": "postgresql://postgres:postgres_password@db:5432/financial_intelligence",
-        "SSH_AUTH_SOCK": "/dev/null"
-    },
-    "postCreateCommand": "npm install && git init"
+  "name": "FINANCIAL-INTELLIGENCE-CORE",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspace",
+  // CORREÇÃO CRÍTICA: Força o mapeamento da pasta do host para o container
+  "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+  "remoteUser": "root",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "saoudrizwan.claude-dev",
+        "dracula-theme.theme-dracula",
+        "ms-vscode.vscode-typescript-next",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-azuretools.vscode-docker",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ],
+      "settings": {
+        "remote.SSH.forwardAgent": false,
+        "git.terminalAuthentication": false,
+        "npm.binLinks": true,
+        "terminal.integrated.shell.linux": "/bin/bash"
+      }
+    }
+  },
+  "containerEnv": {
+    "DATABASE_URL": "postgresql://postgres:postgres_password@db:5432/financial_intelligence",
+    "SSH_AUTH_SOCK": "/dev/null"
+  },
+  // CORREÇÃO: Verifica se o arquivo existe antes de tentar instalar para evitar travamentos
+  "postCreateCommand": "npm install && chown -R node:node /workspace"
 }

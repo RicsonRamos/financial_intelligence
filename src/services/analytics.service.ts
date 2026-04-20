@@ -1,6 +1,8 @@
 import { pool } from '../db/index.js';
-import { sql } from 'slonik';
+import { sql, DatabasePool, DatabasePoolConnection, DatabaseTransactionConnection } from 'slonik';
 import { z } from 'zod';
+
+type Connection = DatabasePool | DatabasePoolConnection | DatabaseTransactionConnection;
 import { BalanceAnalytics, ForecastResponse } from '../types/index.js';
 
 /**
@@ -11,8 +13,8 @@ export class AnalyticsService {
   /**
    * Returns the historical running balance using Window Functions.
    */
-  async getRunningBalance(userId: string): Promise<BalanceAnalytics[]> {
-    const result = await pool.any(sql.type(z.any())`
+  async getRunningBalance(userId: string, connection: Connection = pool): Promise<BalanceAnalytics[]> {
+    const result = await connection.any(sql.type(z.any())`
       SELECT 
         transaction_date,
         amount::numeric(15,2) as amount,
@@ -30,8 +32,8 @@ export class AnalyticsService {
    * Safety: Uses a 30-day calendar series to calculate the average 'burn rate', 
    * effectively handling days without transactions to avoid distorted projections.
    */
-  async getForecast(userId: string): Promise<ForecastResponse[]> {
-    const result = await pool.any(sql.type(z.any())`
+  async getForecast(userId: string, connection: Connection = pool): Promise<ForecastResponse[]> {
+    const result = await connection.any(sql.type(z.any())`
       WITH daily_stats AS (
         -- Aggregated history for the last 30 intervals (Calendar complete)
         SELECT 
@@ -64,6 +66,57 @@ export class AnalyticsService {
     `);
 
     return result as ForecastResponse[];
+  }
+
+  /**
+   * Batch Recalibration: Updates all transaction anomaly flags based on full history.
+   * Strategy: Uses Window Functions to calculate Z-Score partitioned by category.
+   */
+  async recalculateAnomalies(userId: string, connection: Connection = pool): Promise<number> {
+    const result = await connection.query(sql.type(z.any())`
+      WITH updated_stats AS (
+        SELECT 
+          t.id,
+          c.name as cat_name,
+          t.amount,
+          AVG(t.amount) OVER (PARTITION BY t.user_id, t.category_id) as avg_amt,
+          STDDEV(t.amount) OVER (PARTITION BY t.user_id, t.category_id) as std_amt
+        FROM transactions t
+        JOIN categories c ON t.category_id = c.id
+        WHERE t.user_id = ${userId}
+      )
+      UPDATE transactions t
+      SET 
+        z_score = CASE 
+          WHEN us.cat_name = 'Salary' OR us.std_amt = 0 THEN 0 
+          ELSE ABS(us.amount - us.avg_amt) / us.std_amt 
+        END,
+        is_anomaly = CASE 
+          WHEN us.cat_name != 'Salary' AND us.std_amt > 0 AND (ABS(us.amount - us.avg_amt) / us.std_amt) > 3 THEN TRUE 
+          ELSE FALSE 
+        END
+      FROM updated_stats us
+      WHERE t.id = us.id
+    `);
+    return result.rowCount;
+  }
+
+  /**
+   * Exports high-quality labeled data (user-corrected) for ML training.
+   */
+  async exportTrainingData(userId: string, connection: Connection = pool): Promise<any[]> {
+    const data = await connection.any(sql.type(z.any())`
+      SELECT 
+        t.description,
+        c.name as category_name,
+        al.correction_source
+      FROM category_audit_logs al
+      JOIN transactions t ON al.transaction_id = t.id
+      JOIN categories c ON al.new_category_id = c.id
+      WHERE al.user_id = ${userId}
+      ORDER BY al.created_at DESC
+    `);
+    return data as any[];
   }
 }
 

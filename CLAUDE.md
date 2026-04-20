@@ -55,3 +55,12 @@
 - **Saldo Previsto:** Projeção baseada em transações recorrentes e média de gastos variáveis.
 - **Drift de Orçamento:** Diferença percentual entre Budget e Real.
 - **Burn Rate:** Velocidade média diária de consumo do saldo disponível.
+
+## 8. Workflow Dia 5 - Inteligência e Auditoria
+- **Anomalias:** OBRIGATÓRIO usar Window Functions para calcular média móvel e desvio padrão diretamente no PostgreSQL.
+- **Z-Score:** Implementar por categoria (partition by category_id) filtrando outliers > 3.0. Ignorar categoria 'Salary'.
+- **Integração Python:** Criar um endpoint `/analytics/train` que dispara o script Python no `venv` (`/home/node/venv/bin/python`) para processar o mapeamento de categorias.
+- **Rigor de Dados:** Detecção híbrida: Gravação em tempo real no `TransactionService` + Recalibragem em batch no `AnalyticsService`.
+- **Feedback Loop:** Toda correção manual de categoria deve disparar um registro em `category_audit_logs` para futura recalibração da heurística/ML.
+- **Audit Logs:** Registrar `transaction_id`, `old_category_id`, `new_category_id`, `user_id` e a fonte da correção.
+
