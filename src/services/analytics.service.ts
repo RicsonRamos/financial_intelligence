@@ -118,6 +118,63 @@ export class AnalyticsService {
     `);
     return data as any[];
   }
+
+  /**
+   * Returns the current daily 'burn rate' (average spend per day in the last 30 days).
+   */
+  async getBurnRate(userId: string, connection: Connection = pool): Promise<string> {
+    const result = await connection.oneFirst(sql.type(z.any())`
+      SELECT 
+        COALESCE(AVG(daily_total), 0)::numeric(15,2)
+      FROM (
+        SELECT 
+          transaction_date, 
+          ABS(SUM(amount)) as daily_total
+        FROM transactions
+        WHERE user_id = ${userId} 
+          AND transaction_date >= CURRENT_DATE - INTERVAL '30 days'
+          AND amount < 0 -- Focus on spending
+        GROUP BY transaction_date
+      ) sub
+    `);
+    return result as string;
+  }
+
+  /**
+   * Compares Budget Target vs Actual Spending.
+   */
+  async getBudgetDrift(userId: string, connection: Connection = pool): Promise<any[]> {
+    return await connection.any(sql.type(z.any())`
+      SELECT 
+        c.name as category_name,
+        b.target_amount::numeric(15,2) as budget,
+        ABS(COALESCE(SUM(t.amount), 0))::numeric(15,2) as actual,
+        (ABS(COALESCE(SUM(t.amount), 0)) - b.target_amount)::numeric(15,2) as drift
+      FROM budgets b
+      JOIN categories c ON b.category_id = c.id
+      LEFT JOIN transactions t ON t.category_id = c.id 
+        AND t.user_id = b.user_id 
+        AND t.transaction_date BETWEEN b.period_start AND b.period_end
+        AND t.amount < 0
+      WHERE b.user_id = ${userId}
+      GROUP BY c.name, b.target_amount
+    `);
+  }
+
+  /**
+   * Returns all flagged anomalies for triage.
+   */
+  async getAnomalies(userId: string, connection: Connection = pool): Promise<any[]> {
+    return await connection.any(sql.type(z.any())`
+      SELECT 
+        t.*,
+        c.name as category_name
+      FROM transactions t
+      JOIN categories c ON t.category_id = c.id
+      WHERE t.user_id = ${userId} AND t.is_anomaly = TRUE
+      ORDER BY t.transaction_date DESC
+    `);
+  }
 }
 
 export const analyticsService = new AnalyticsService();

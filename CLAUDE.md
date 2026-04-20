@@ -64,3 +64,12 @@
 - **Feedback Loop:** Toda correção manual de categoria deve disparar um registro em `category_audit_logs` para futura recalibração da heurística/ML.
 - **Audit Logs:** Registrar `transaction_id`, `old_category_id`, `new_category_id`, `user_id` e a fonte da correção.
 
+## 9. Workflow Dia 6 - Interface de Saída (UX de Dados)
+- **Prioridade:** Visualização de dados diagnósticos sobre estética pura.
+- **Next.js:** Usar App Router no diretório `/src/frontend`.
+- **Componentes:** Criar 'Metric Cards' para Saldo, Burn Rate e Forecast com Tooltips de "Explicar Cálculo".
+- **Gráficos:** Implementar 'Saldo Acumulado vs Previsto' usando Recharts (leves).
+- **Interatividade:** Lista de Anomalias com modal de correção para alimentar o loop de feedback.
+- **Sincronização:** Toda correção na UI deve disparar um update no backend e atualizar o `category_audit_logs`.
+
+
