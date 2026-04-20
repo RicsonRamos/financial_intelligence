@@ -1,0 +1,27 @@
+# ai-jail configuration file (Akita Philosophy)
+
+[jail]
+# Use bubblewrap as the engine on Linux
+engine = "bubblewrap"
+
+[bubblewrap]
+# Basic isolation rules
+# Mount the entire /usr and /bin as read-only for system tools
+share_net = true # User requested internet access
+
+# Define allowed paths
+# Only allows access to the current workspace and essential system paths
+binds = [
+    { src = "/workspace", dest = "/workspace", writable = true },
+    { src = "/tmp", dest = "/tmp", writable = true },
+    { src = "/usr", dest = "/usr", writable = false },
+    { src = "/bin", dest = "/bin", writable = false },
+    { src = "/lib", dest = "/lib", writable = false },
+    { src = "/lib64", dest = "/lib64", writable = false },
+    { src = "/etc/alternatives", dest = "/etc/alternatives", writable = false },
+    { src = "/etc/ssl", dest = "/etc/ssl", writable = false },
+    { src = "/etc/ca-certificates", dest = "/etc/ca-certificates", writable = false }
+]
+
+# Explicitly deny sensitive paths (redundant with bubblewrap's default deny-all, but good for clarity)
+# Any path NOT in 'binds' is inaccessible.

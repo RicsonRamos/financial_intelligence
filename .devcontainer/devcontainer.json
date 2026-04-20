@@ -1,0 +1,33 @@
+{
+    "name": "FINANCIAL-INTELLIGENCE-CORE",
+    "dockerComposeFile": "docker-compose.yml",
+    "service": "app",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "saoudrizwan.claude-dev",
+                "dracula-theme.theme-dracula",
+                "ms-vscode.vscode-typescript-next",
+                "dbaeumer.vscode-eslint",
+                "esbenp.prettier-vscode",
+                "ms-azuretools.vscode-docker",
+                "mtxr.sqltools",
+                "mtxr.sqltools-driver-pg"
+            ],
+            "settings": {
+                "remote.SSH.forwardAgent": false,
+                "git.terminalAuthentication": false
+            }
+        }
+    },
+    "remoteUser": "node",
+    "mounts": [
+        "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=cached"
+    ],
+    "containerEnv": {
+        "DATABASE_URL": "postgresql://postgres:postgres_password@db:5432/financial_intelligence",
+        "SSH_AUTH_SOCK": "/dev/null"
+    },
+    "postCreateCommand": "npm install && git init"
+}
